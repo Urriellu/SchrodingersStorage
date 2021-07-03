@@ -11,15 +11,17 @@ namespace SchrodingersStorage.Test
         [TestMethod]
         public void T01_Files()
         {
-            string filenamecommon = $"{nameof(SchrodingersFile)}-{nameof(T01_Files)}-{DateTime.Now:yyyyMMdd-HHmmssfff}";
-            string pathFilePrimary = Path.Combine(Path.GetTempPath(), $"{filenamecommon}-1.txt");
-            string pathFileSecondary = Path.Combine(Path.GetTempPath(), $"{filenamecommon}-2.txt");
+            string commondirname = $"{nameof(SchrodingersFile)}-{nameof(T01_Files)}-{DateTime.Now:yyyyMMdd-HHmmssfff}";
+            string pathFilePrimary = Path.Combine(Path.GetTempPath(), $"{commondirname}-1", "f.txt");
+            string pathFileSecondary = Path.Combine(Path.GetTempPath(), $"{commondirname}-2", "f.txt");
 
             SchrodingersFile f = new SchrodingersFile(pathFilePrimary, pathFileSecondary);
             Assert.IsFalse(f.Exists);
 
             const string content1 = "Sample file content.";
 
+            Directory.CreateDirectory(f.PathParentDirectoryPrimary);
+            Directory.CreateDirectory(f.PathParentDirectorySecondary);
             f.Write(content1);
             Assert.IsTrue(f.Exists);
             Assert.IsTrue(File.Exists(f.PathFilePrimary));
@@ -44,11 +46,15 @@ namespace SchrodingersStorage.Test
         [TestMethod]
         public void T02_Directories()
         {
-            string instanceid = $"{nameof(SchrodingersFile)}-{nameof(T02_Directories)}-{DateTime.Now:yyyyMMdd-HHmmssfff}";
-            string pathDirPrimary = Path.Combine(Path.GetTempPath(), $"{instanceid}-primary", "d1");
-            string pathDirSecondary = Path.Combine(Path.GetTempPath(), $"{instanceid}-secondary", "d1");
+            string commondirname = $"{nameof(SchrodingersFile)}-{nameof(T02_Directories)}";
+            string instanceid = $"{DateTime.Now:yyyyMMdd-HHmmssfff}";
+            string pathDirPrimary = Path.Combine(Path.GetTempPath(), commondirname, instanceid, "primary", "d1");
+            string pathDirSecondary = Path.Combine(Path.GetTempPath(), commondirname, instanceid, "secondary", "d1");
 
             SchrodingersDirectory d = new SchrodingersDirectory(pathDirPrimary, pathDirSecondary);
+
+            Directory.CreateDirectory(d.PathDirectoryPrimary);
+            Directory.CreateDirectory(d.PathParentDirectorySecondary);
 
             const string content1 = "Sample file content.";
             SchrodingersFile f1 = d.CreateFile("f1.txt", content1);

@@ -9,8 +9,8 @@ namespace SchrodingersStorage
     public class SchrodingersFile
     {
         public string FileName => Primary.Name;
-        public string PathFilePrimary => Primary.FullName;
-        public string PathFileSecondary => Secondary.FullName;
+        public readonly string PathFilePrimary;
+        public readonly string PathFileSecondary;
         public string PathParentDirectoryPrimary => Path.GetDirectoryName(PathFilePrimary);
         public string PathParentDirectorySecondary => Path.GetDirectoryName(PathFileSecondary);
 
@@ -22,20 +22,11 @@ namespace SchrodingersStorage
             {
                 if (Primary.Exists)
                 {
-                    try
-                    {
-                        return ByteSize.FromBytes(Primary.Length);
-                    }
+                    try { return ByteSize.FromBytes(Primary.Length); }
                     catch { }
                 }
-                try
-                {
-                    return ByteSize.FromBytes(Secondary.Length);
-                }
-                catch
-                {
-                    return ByteSize.FromBytes(0);
-                }
+                try { return ByteSize.FromBytes(Secondary.Length); }
+                catch { return ByteSize.FromBytes(0); }
             }
         }
 
@@ -53,8 +44,8 @@ namespace SchrodingersStorage
             }
         }
 
-        readonly FileInfo Primary;
-        readonly FileInfo Secondary;
+        FileInfo Primary => new FileInfo(PathFilePrimary);
+        FileInfo Secondary => new FileInfo(PathFileSecondary);
 
         public SchrodingersFile(string pathFilePrimary, string pathFileSecondary)
         {
@@ -63,8 +54,8 @@ namespace SchrodingersStorage
             if (Path.GetDirectoryName(pathFilePrimary) == Path.GetDirectoryName(pathFileSecondary)) throw new ArgumentException($"Primary and secondary paths must be different.");
             if (Path.GetFileName(pathFilePrimary) != Path.GetFileName(pathFileSecondary)) throw new ArgumentException($"Both paths must have the same file name, but in different directories.");
 
-            Primary = new FileInfo(PathFilePrimary);
-            Secondary = new FileInfo(PathFileSecondary);
+            PathFilePrimary = pathFilePrimary;
+            PathFileSecondary = pathFileSecondary;
         }
 
         public void MoveToPrimary() => File.Move(PathFileSecondary, PathFilePrimary);
@@ -85,6 +76,7 @@ namespace SchrodingersStorage
             typeof(UInt32),
             typeof(Int64),
             typeof(UInt64),
+            typeof(String)
         };
 
         static T ChangeType<T>(object obj)
@@ -123,10 +115,7 @@ namespace SchrodingersStorage
             catch
             {
                 try { content = File.ReadAllText(PathFileSecondary); }
-                catch
-                {
-                    throw new Exception($"Unable to read from either primary nor secondary location.");
-                }
+                catch { throw new Exception($"Unable to read from either primary nor secondary location."); }
             }
             return content;
         }

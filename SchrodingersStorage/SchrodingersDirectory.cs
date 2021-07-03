@@ -11,19 +11,18 @@ namespace SchrodingersStorage
     {
         public string Name => Primary.Name;
 
-        public string PathDirectoryPrimary => Primary.FullName;
-        public string PathDirectorySecondary => Secondary.FullName;
+        public readonly string PathDirectoryPrimary;
+        public readonly string PathDirectorySecondary;
 
         public string PathParentDirectoryPrimary => Path.GetDirectoryName(PathDirectoryPrimary);
         public string PathParentDirectorySecondary => Path.GetDirectoryName(PathDirectorySecondary);
 
         public bool Exists => Primary.Exists || Secondary.Exists;
 
-        readonly DirectoryInfo Primary;
+        DirectoryInfo Primary => new DirectoryInfo(PathDirectoryPrimary);
+        DirectoryInfo Secondary => new DirectoryInfo(PathDirectorySecondary);
 
         public SchrodingersFile GetFile(string filename) => new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename));
-
-        readonly DirectoryInfo Secondary;
 
         public SchrodingersDirectory(SchrodingersDirectory parent, string name) : this(Path.Combine(parent.PathDirectoryPrimary, name), Path.Combine(parent.PathDirectorySecondary, name)) { }
 
@@ -34,8 +33,8 @@ namespace SchrodingersStorage
             if (pathDirPrimary == pathDirSecondary) throw new ArgumentException($"Primary and secondary paths must be different.");
             if (Path.GetFileName(pathDirPrimary) != Path.GetFileName(pathDirSecondary)) throw new ArgumentException($"Both directory must have the same name, but located in different parent directories.");
 
-            Primary = new DirectoryInfo(PathDirectoryPrimary);
-            Secondary = new DirectoryInfo(PathDirectorySecondary);
+            PathDirectoryPrimary = pathDirPrimary;
+            PathDirectorySecondary = pathDirSecondary;
         }
 
         public IEnumerable<SchrodingersDirectory> Directories
@@ -76,8 +75,10 @@ namespace SchrodingersStorage
         {
             get
             {
-                var primaryFileNames = Primary.GetFiles().Select(d => d.Name);
-                var secondaryFileNames = Secondary.GetFiles().Select(d => d.Name);
+                string[] primaryFileNames = new string[0];
+                try { primaryFileNames = Primary.GetFiles().Select(d => d.Name).ToArray(); } catch { }
+                string[] secondaryFileNames = new string[0];
+                try { secondaryFileNames = Secondary.GetFiles().Select(d => d.Name).ToArray(); } catch { }
                 var allFileNames = primaryFileNames.Union(secondaryFileNames);
                 List<SchrodingersFile> files = new List<SchrodingersFile>();
                 foreach (string filename in allFileNames) files.Add(new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename)));
@@ -105,7 +106,7 @@ namespace SchrodingersStorage
             if (!Directory.Exists(PathDirectoryPrimary)) Directory.CreateDirectory(PathDirectoryPrimary);
             foreach (SchrodingersDirectory dir in Directories) dir.MoveToPrimary();
             foreach (SchrodingersFile file in Files) file.MoveToPrimary();
-            Directory.Delete(PathDirectoryPrimary, recursive: false);
+            Directory.Delete(PathDirectorySecondary, recursive: false);
         }
 
         public void MoveToSecondary()
@@ -113,7 +114,7 @@ namespace SchrodingersStorage
             if (!Directory.Exists(PathDirectorySecondary)) Directory.CreateDirectory(PathDirectorySecondary);
             foreach (SchrodingersDirectory dir in Directories) dir.MoveToSecondary();
             foreach (SchrodingersFile file in Files) file.MoveToSecondary();
-            Directory.Delete(PathDirectorySecondary, recursive: false);
+            Directory.Delete(PathDirectoryPrimary, recursive: false);
         }
     }
 }
