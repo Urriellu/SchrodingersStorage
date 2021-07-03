@@ -1,19 +1,57 @@
-﻿using Newtonsoft.Json;
+﻿using Humanizer.Bytes;
+using Newtonsoft.Json;
 using System;
-using System.Diagnostics.Contracts;
 using System.IO;
+using System.Linq;
 
 namespace SchrodingersStorage
 {
-    public class SchrodingersFile<T>
+    public class SchrodingersFile
     {
-        public readonly string PathFilePrimary;
-        public readonly string PathFileSecondary;
-
+        public string FileName => Primary.Name;
+        public string PathFilePrimary => Primary.FullName;
+        public string PathFileSecondary => Secondary.FullName;
         public string PathParentDirectoryPrimary => Path.GetDirectoryName(PathFilePrimary);
         public string PathParentDirectorySecondary => Path.GetDirectoryName(PathFileSecondary);
 
         public bool Exists => Primary.Exists || Secondary.Exists;
+
+        public ByteSize Size
+        {
+            get
+            {
+                if (Primary.Exists)
+                {
+                    try
+                    {
+                        return ByteSize.FromBytes(Primary.Length);
+                    }
+                    catch { }
+                }
+                try
+                {
+                    return ByteSize.FromBytes(Secondary.Length);
+                }
+                catch
+                {
+                    return ByteSize.FromBytes(0);
+                }
+            }
+        }
+
+        public bool IsInPrimary => Primary.Exists;
+
+        public bool IsOnlyInSecondary => Secondary.Exists && !Primary.Exists;
+
+        public string CurrentPath
+        {
+            get
+            {
+                if (Primary.Exists) return Primary.FullName;
+                if (Secondary.Exists) return Secondary.FullName;
+                throw new FileNotFoundException(FileName);
+            }
+        }
 
         readonly FileInfo Primary;
         readonly FileInfo Secondary;
@@ -22,20 +60,45 @@ namespace SchrodingersStorage
         {
             if (string.IsNullOrEmpty(pathFilePrimary)) throw new ArgumentNullException(nameof(pathFilePrimary));
             if (string.IsNullOrEmpty(pathFileSecondary)) throw new ArgumentNullException(nameof(pathFileSecondary));
-
-            this.PathFilePrimary = pathFilePrimary;
-            this.PathFileSecondary = pathFileSecondary;
+            if (Path.GetDirectoryName(pathFilePrimary) == Path.GetDirectoryName(pathFileSecondary)) throw new ArgumentException($"Primary and secondary paths must be different.");
+            if (Path.GetFileName(pathFilePrimary) != Path.GetFileName(pathFileSecondary)) throw new ArgumentException($"Both paths must have the same file name, but in different directories.");
 
             Primary = new FileInfo(PathFilePrimary);
             Secondary = new FileInfo(PathFileSecondary);
         }
 
+        public void MoveToPrimary() => File.Move(PathFileSecondary, PathFilePrimary);
+
         public void MoveToSecondary() => File.Move(PathFilePrimary, PathFileSecondary);
 
-        public void Write(T content)
+        Type[] typesNotFormattedAsJson = new Type[] {
+            typeof(Boolean),
+            typeof(SByte),
+            typeof(Byte),
+            typeof(Char),
+            typeof(Single),
+            typeof(Double),
+            typeof(Decimal),
+            typeof(Int16),
+            typeof(UInt16),
+            typeof(Int32),
+            typeof(UInt32),
+            typeof(Int64),
+            typeof(UInt64),
+        };
+
+        static T ChangeType<T>(object obj)
         {
-            string json = JsonConvert.SerializeObject(content);
-            WriteAsString(json);
+            return (T)Convert.ChangeType(obj, typeof(T));
+        }
+
+
+        public void Write<T>(T content)
+        {
+            string txt;
+            if (typesNotFormattedAsJson.Contains(typeof(T))) txt = content.ToString();
+            else txt = JsonConvert.SerializeObject(content);
+            WriteAsString(txt);
         }
 
         internal void WriteAsString(string content)
@@ -68,8 +131,14 @@ namespace SchrodingersStorage
             return content;
         }
 
-        public T Read()
+        public T Read<T>()
         {
+            if (typesNotFormattedAsJson.Contains(typeof(T)))
+            {
+                string str = ReadAsString();
+                if (typeof(T) == typeof(string)) return (T)(object)str;
+                else return (T)(object)ChangeType<T>(str);
+            }
             string json = ReadAsString();
             T obj = JsonConvert.DeserializeObject<T>(json);
             return obj;
