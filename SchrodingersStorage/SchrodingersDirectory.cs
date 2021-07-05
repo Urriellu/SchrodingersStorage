@@ -37,17 +37,26 @@ namespace SchrodingersStorage
             PathDirectorySecondary = pathDirSecondary;
         }
 
-        public IEnumerable<SchrodingersDirectory> Directories
+        public virtual IEnumerable<SchrodingersDirectory> Directories => GetDirectories<SchrodingersDirectory>();
+
+        protected IEnumerable<TDirectories> GetDirectories<TDirectories>(Func<string, string, TDirectories> constructor = null) where TDirectories : SchrodingersDirectory
         {
-            get
+            var result = new List<TDirectories>();
+            string[] primarySubDirsNames = new string[0];
+            try { primarySubDirsNames = Primary.GetDirectories().Select(d => d.Name).ToArray(); } catch { }
+            string[] secondarySubDirsNames = new string[0];
+            try { secondarySubDirsNames = Secondary.GetDirectories().Select(d => d.Name).ToArray(); } catch { }
+            var allSubDirsNames = primarySubDirsNames.Union(secondarySubDirsNames);
+            foreach (string subdirname in allSubDirsNames)
             {
-                var primarySubDirsNames = Primary.GetDirectories().Select(d => d.Name);
-                var secondarySubDirsNames = Secondary.GetDirectories().Select(d => d.Name);
-                var allSubDirsNames = primarySubDirsNames.Union(secondarySubDirsNames);
-                List<SchrodingersDirectory> sdirs = new List<SchrodingersDirectory>();
-                foreach (string subdirname in allSubDirsNames) sdirs.Add(new SchrodingersDirectory(Path.Combine(PathDirectoryPrimary, subdirname), Path.Combine(PathDirectorySecondary, subdirname)));
-                return sdirs;
+                string pathDirPrim = Path.Combine(PathDirectoryPrimary, subdirname);
+                string pathDirSec = Path.Combine(PathDirectorySecondary, subdirname);
+                TDirectories newobj;
+                if (constructor != null) newobj = constructor(pathDirPrim, pathDirSec);
+                else newobj = (TDirectories)Activator.CreateInstance(typeof(TDirectories), pathDirPrim, pathDirSec);
+                result.Add(newobj);
             }
+            return result;
         }
 
         public SchrodingersFile CreateFile<T>(string filename, T content)
@@ -80,9 +89,7 @@ namespace SchrodingersStorage
                 string[] secondaryFileNames = new string[0];
                 try { secondaryFileNames = Secondary.GetFiles().Select(d => d.Name).ToArray(); } catch { }
                 var allFileNames = primaryFileNames.Union(secondaryFileNames);
-                List<SchrodingersFile> files = new List<SchrodingersFile>();
-                foreach (string filename in allFileNames) files.Add(new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename)));
-                return files;
+                foreach (string filename in allFileNames) yield return new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename));
             }
         }
 
@@ -116,5 +123,27 @@ namespace SchrodingersStorage
             foreach (SchrodingersFile file in Files) file.MoveToSecondary();
             Directory.Delete(PathDirectoryPrimary, recursive: false);
         }
+    }
+
+    /// <summary>
+    /// Represents a <see cref="SchrodingersDirectory"/> whose subdirectories (which would also be <see cref="SchrodingersDirectory"/>) are custom types derived from <see cref="SchrodingersDirectory"/>.
+    /// </summary>
+    /// <typeparam name="TDirectories">Type of its subdirectories.</typeparam>
+    public class SchrodingersDirectory<TDirectories> : SchrodingersDirectory where TDirectories : SchrodingersDirectory
+    {
+        readonly Func<string, string, TDirectories> Constructor;
+
+        /// <summary>
+        /// Created a new <see cref="SchrodingersDirectory"/> whose subdirectories (which would also be <see cref="SchrodingersDirectory"/>) are custom types derived from <see cref="SchrodingersDirectory"/>.
+        /// </summary>
+        /// <param name="pathDirPrimary">Path to primary directory location.</param>
+        /// <param name="pathDirSecondary">Path to secondary directory location.</param>
+        /// <param name="constructor">Constructor used to create objects representing each subdirectory. If undefined, the default constructor is used instead.</param>
+        public SchrodingersDirectory(string pathDirPrimary, string pathDirSecondary, Func<string, string, TDirectories> constructor = null) : base(pathDirPrimary, pathDirSecondary)
+        {
+            this.Constructor = constructor;
+        }
+
+        public virtual new IEnumerable<TDirectories> Directories => GetDirectories<TDirectories>(Constructor);
     }
 }
