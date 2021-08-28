@@ -80,6 +80,7 @@ namespace SchrodingersStorage
             Primary.Delete(true);
         }
 
+        /// <summary>List of <see cref="SchrodingersFile"/> in this <see cref="SchrodingersDirectory"/>.</summary>
         public IEnumerable<SchrodingersFile> Files
         {
             get
@@ -92,6 +93,9 @@ namespace SchrodingersStorage
                 foreach (string filename in allFileNames) yield return new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename));
             }
         }
+
+        /// <summary>List of all <see cref="SchrodingersFile"/> in this <see cref="SchrodingersDirectory"/> and all subdirectories.</summary>
+        public IEnumerable<SchrodingersFile> AllFiles => Files.Concat(Directories.SelectMany(d => d.AllFiles));
 
         public ByteSize Size
         {

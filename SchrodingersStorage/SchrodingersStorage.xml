@@ -4,5 +4,19 @@
         <name>SchrodingersStorage</name>
     </assembly>
     <members>
+        <member name="T:SchrodingersStorage.SchrodingersDirectory`1">
+            <summary>
+            Represents a <see cref="T:SchrodingersStorage.SchrodingersDirectory"/> whose subdirectories (which would also be <see cref="T:SchrodingersStorage.SchrodingersDirectory"/>) are custom types derived from <see cref="T:SchrodingersStorage.SchrodingersDirectory"/>.
+            </summary>
+            <typeparam name="TDirectories">Type of its subdirectories.</typeparam>
+        </member>
+        <member name="M:SchrodingersStorage.SchrodingersDirectory`1.#ctor(System.String,System.String,System.Func{System.String,System.String,`0})">
+            <summary>
+            Created a new <see cref="T:SchrodingersStorage.SchrodingersDirectory"/> whose subdirectories (which would also be <see cref="T:SchrodingersStorage.SchrodingersDirectory"/>) are custom types derived from <see cref="T:SchrodingersStorage.SchrodingersDirectory"/>.
+            </summary>
+            <param name="pathDirPrimary">Path to primary directory location.</param>
+            <param name="pathDirSecondary">Path to secondary directory location.</param>
+            <param name="constructor">Constructor used to create objects representing each subdirectory. If undefined, the default constructor is used instead.</param>
+        </member>
     </members>
 </doc>
