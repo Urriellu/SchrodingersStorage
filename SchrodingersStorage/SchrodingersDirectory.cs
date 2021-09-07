@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.NG;
 using System.Linq;
 using System.Text;
 
@@ -10,6 +11,7 @@ namespace SchrodingersStorage
     public class SchrodingersDirectory
     {
         public string Name => Primary.Name;
+        public IOPriorityClass IOPriority;
 
         public readonly string PathDirectoryPrimary;
         public readonly string PathDirectorySecondary;
@@ -22,11 +24,11 @@ namespace SchrodingersStorage
         DirectoryInfo Primary => new DirectoryInfo(PathDirectoryPrimary);
         DirectoryInfo Secondary => new DirectoryInfo(PathDirectorySecondary);
 
-        public SchrodingersFile GetFile(string filename) => new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename));
+        public SchrodingersFile GetFile(string filename, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort) => new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename), ioPriorityClass);
 
-        public SchrodingersDirectory(SchrodingersDirectory parent, string name) : this(Path.Combine(parent.PathDirectoryPrimary, name), Path.Combine(parent.PathDirectorySecondary, name)) { }
+        public SchrodingersDirectory(SchrodingersDirectory parent, string name, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort) : this(Path.Combine(parent.PathDirectoryPrimary, name), Path.Combine(parent.PathDirectorySecondary, name), ioPriorityClass) { }
 
-        public SchrodingersDirectory(string pathDirPrimary, string pathDirSecondary)
+        public SchrodingersDirectory(string pathDirPrimary, string pathDirSecondary, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort)
         {
             if (string.IsNullOrEmpty(pathDirPrimary)) throw new ArgumentNullException(nameof(pathDirPrimary));
             if (string.IsNullOrEmpty(pathDirSecondary)) throw new ArgumentNullException(nameof(pathDirSecondary));
@@ -35,6 +37,7 @@ namespace SchrodingersStorage
 
             PathDirectoryPrimary = pathDirPrimary;
             PathDirectorySecondary = pathDirSecondary;
+            this.IOPriority = ioPriorityClass;
         }
 
         public virtual IEnumerable<SchrodingersDirectory> Directories => GetDirectories<SchrodingersDirectory>();
@@ -43,9 +46,11 @@ namespace SchrodingersStorage
         {
             var result = new List<TDirectories>();
             string[] primarySubDirsNames = new string[0];
-            try { primarySubDirsNames = Primary.GetDirectories().Select(d => d.Name).ToArray(); } catch { }
+            try { primarySubDirsNames = Primary.GetDirectories(iopriority: IOPriority).Select(d => d.Name).ToArray(); }
+            catch { }
             string[] secondarySubDirsNames = new string[0];
-            try { secondarySubDirsNames = Secondary.GetDirectories().Select(d => d.Name).ToArray(); } catch { }
+            try { secondarySubDirsNames = Secondary.GetDirectories(iopriority: IOPriority).Select(d => d.Name).ToArray(); }
+            catch { }
             var allSubDirsNames = primarySubDirsNames.Union(secondarySubDirsNames);
             foreach (string subdirname in allSubDirsNames)
             {
@@ -62,7 +67,7 @@ namespace SchrodingersStorage
         public SchrodingersFile CreateFile<T>(string filename, T content)
         {
             if (Path.GetInvalidFileNameChars().Any(c => filename.Contains(c))) throw new ArgumentException($"File name '{filename}' is invalid. It must NOT contain a path, and it cannot contain any invalid characters ({Path.GetInvalidFileNameChars()}).");
-            SchrodingersFile f = new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename));
+            SchrodingersFile f = new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename), IOPriority);
             f.Write(content);
             return f;
         }
@@ -70,14 +75,14 @@ namespace SchrodingersStorage
         public SchrodingersDirectory CreateDirectory(string dirname)
         {
             if (Path.GetInvalidFileNameChars().Any(c => dirname.Contains(c))) throw new ArgumentException($"Directory name '{dirname}' is invalid. It must NOT contain a path, and it cannot contain any invalid characters ({Path.GetInvalidFileNameChars()}).");
-            SchrodingersDirectory d = new SchrodingersDirectory(Path.Combine(PathDirectoryPrimary, dirname), Path.Combine(PathDirectorySecondary, dirname));
+            SchrodingersDirectory d = new SchrodingersDirectory(Path.Combine(PathDirectoryPrimary, dirname), Path.Combine(PathDirectorySecondary, dirname), IOPriority);
             return d;
         }
 
         public void Delete()
         {
-            Secondary.Delete(true);
-            Primary.Delete(true);
+            Secondary.Delete(true, iopriority: IOPriority);
+            Primary.Delete(true, iopriority: IOPriority);
         }
 
         /// <summary>List of <see cref="SchrodingersFile"/> in this <see cref="SchrodingersDirectory"/>.</summary>
@@ -86,11 +91,13 @@ namespace SchrodingersStorage
             get
             {
                 string[] primaryFileNames = new string[0];
-                try { primaryFileNames = Primary.GetFiles().Select(d => d.Name).ToArray(); } catch { }
+                try { primaryFileNames = Primary.GetFiles().Select(d => d.Name).ToArray(); }
+                catch { }
                 string[] secondaryFileNames = new string[0];
-                try { secondaryFileNames = Secondary.GetFiles().Select(d => d.Name).ToArray(); } catch { }
+                try { secondaryFileNames = Secondary.GetFiles().Select(d => d.Name).ToArray(); }
+                catch { }
                 var allFileNames = primaryFileNames.Union(secondaryFileNames);
-                foreach (string filename in allFileNames) yield return new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename));
+                foreach (string filename in allFileNames) yield return new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename), IOPriority);
             }
         }
 
@@ -114,18 +121,18 @@ namespace SchrodingersStorage
 
         public void MoveToPrimary()
         {
-            if (!Directory.Exists(PathDirectoryPrimary)) Directory.CreateDirectory(PathDirectoryPrimary);
+            if (!DirectoryNG.Exists(PathDirectoryPrimary, iopriority: IOPriority)) DirectoryNG.CreateDirectory(PathDirectoryPrimary, iopriority: IOPriority);
             foreach (SchrodingersDirectory dir in Directories) dir.MoveToPrimary();
             foreach (SchrodingersFile file in Files) file.MoveToPrimary();
-            Directory.Delete(PathDirectorySecondary, recursive: false);
+            if (Secondary.Exists(iopriority: IOPriority)) Secondary.Delete(recursive: false, iopriority: IOPriority);
         }
 
         public void MoveToSecondary()
         {
-            if (!Directory.Exists(PathDirectorySecondary)) Directory.CreateDirectory(PathDirectorySecondary);
+            if (!DirectoryNG.Exists(PathDirectorySecondary, iopriority: IOPriority)) DirectoryNG.CreateDirectory(PathDirectorySecondary, IOPriority);
             foreach (SchrodingersDirectory dir in Directories) dir.MoveToSecondary();
             foreach (SchrodingersFile file in Files) file.MoveToSecondary();
-            Directory.Delete(PathDirectoryPrimary, recursive: false);
+            if (Primary.Exists(iopriority: IOPriority)) Primary.Delete(recursive: false, iopriority: IOPriority);
         }
     }
 
@@ -143,7 +150,7 @@ namespace SchrodingersStorage
         /// <param name="pathDirPrimary">Path to primary directory location.</param>
         /// <param name="pathDirSecondary">Path to secondary directory location.</param>
         /// <param name="constructor">Constructor used to create objects representing each subdirectory. If undefined, the default constructor is used instead.</param>
-        public SchrodingersDirectory(string pathDirPrimary, string pathDirSecondary, Func<string, string, TDirectories> constructor = null) : base(pathDirPrimary, pathDirSecondary)
+        public SchrodingersDirectory(string pathDirPrimary, string pathDirSecondary, IOPriorityClass ioPriorityClass, Func<string, string, TDirectories> constructor = null) : base(pathDirPrimary, pathDirSecondary, ioPriorityClass)
         {
             this.Constructor = constructor;
         }

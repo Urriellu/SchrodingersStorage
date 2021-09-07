@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.IO.NG;
 using System.Linq;
 
 namespace SchrodingersStorage
@@ -9,6 +10,7 @@ namespace SchrodingersStorage
     public class SchrodingersFile
     {
         public string FileName => Primary.Name;
+        public IOPriorityClass IOPriority;
         public readonly string PathFilePrimary;
         public readonly string PathFileSecondary;
         public string PathParentDirectoryPrimary => Path.GetDirectoryName(PathFilePrimary);
@@ -30,9 +32,9 @@ namespace SchrodingersStorage
             }
         }
 
-        public bool IsInPrimary => Primary.Exists;
+        public bool IsInPrimary => Primary.Exists(iopriority: IOPriority);
 
-        public bool IsOnlyInSecondary => Secondary.Exists && !Primary.Exists;
+        public bool IsOnlyInSecondary => Secondary.Exists(iopriority: IOPriority) && !Primary.Exists(iopriority: IOPriority);
 
         public string CurrentPath
         {
@@ -47,7 +49,7 @@ namespace SchrodingersStorage
         FileInfo Primary => new FileInfo(PathFilePrimary);
         FileInfo Secondary => new FileInfo(PathFileSecondary);
 
-        public SchrodingersFile(string pathFilePrimary, string pathFileSecondary)
+        public SchrodingersFile(string pathFilePrimary, string pathFileSecondary, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort)
         {
             if (string.IsNullOrEmpty(pathFilePrimary)) throw new ArgumentNullException(nameof(pathFilePrimary));
             if (string.IsNullOrEmpty(pathFileSecondary)) throw new ArgumentNullException(nameof(pathFileSecondary));
@@ -56,13 +58,15 @@ namespace SchrodingersStorage
 
             PathFilePrimary = pathFilePrimary;
             PathFileSecondary = pathFileSecondary;
+            this.IOPriority = ioPriorityClass;
         }
 
-        public void MoveToPrimary() => File.Move(PathFileSecondary, PathFilePrimary);
+        public void MoveToPrimary() => FileNG.Move(PathFileSecondary, PathFilePrimary, iopriority: IOPriority);
 
-        public void MoveToSecondary() => File.Move(PathFilePrimary, PathFileSecondary);
+        public void MoveToSecondary() => FileNG.Move(PathFilePrimary, PathFileSecondary, iopriority: IOPriority);
 
-        Type[] typesNotFormattedAsJson = new Type[] {
+        Type[] typesNotFormattedAsJson = new Type[]
+        {
             typeof(Boolean),
             typeof(SByte),
             typeof(Byte),
@@ -98,23 +102,23 @@ namespace SchrodingersStorage
             if (Secondary.Exists)
             {
                 // if it has been moved to secondary, update its contents in secondary location
-                File.WriteAllText(PathFileSecondary, content);
-                File.Delete(PathFilePrimary);
+                FileNG.WriteAllText(PathFileSecondary, content, iopriority: IOPriority);
+                FileNG.Delete(PathFilePrimary, iopriority: IOPriority);
             }
             else
             {
-                File.WriteAllText(PathFilePrimary, content); // if it hasn't been moved to secondary, or it doesn't exist anywhere, write to primary
-                if (Secondary.Exists) File.Move(PathFilePrimary, PathFileSecondary); // if another thread or process has created the file in secondary while we were writing to the primary, move from primary to secondary
+                FileNG.WriteAllText(PathFilePrimary, content, iopriority: IOPriority); // if it hasn't been moved to secondary, or it doesn't exist anywhere, write to primary
+                if (Secondary.Exists) FileNG.Move(PathFilePrimary, PathFileSecondary); // if another thread or process has created the file in secondary while we were writing to the primary, move from primary to secondary
             }
         }
 
         internal string ReadAsString()
         {
             string content;
-            try { content = File.ReadAllText(PathFilePrimary); }
+            try { content = FileNG.ReadAllText(PathFilePrimary, iopriority: IOPriority); }
             catch
             {
-                try { content = File.ReadAllText(PathFileSecondary); }
+                try { content = FileNG.ReadAllText(PathFileSecondary, iopriority: IOPriority); }
                 catch { throw new Exception($"Unable to read from either primary nor secondary location."); }
             }
             return content;
