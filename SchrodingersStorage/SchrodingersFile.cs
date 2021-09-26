@@ -61,9 +61,15 @@ namespace SchrodingersStorage
             this.IOPriority = ioPriorityClass;
         }
 
-        public void MoveToPrimary() => FileNG.Move(PathFileSecondary, PathFilePrimary, iopriority: IOPriority);
+        public void MoveToPrimary()
+        {
+            if (Secondary.Exists) FileNG.Move(PathFileSecondary, PathFilePrimary, overwrite: true, iopriority: IOPriority);
+        }
 
-        public void MoveToSecondary() => FileNG.Move(PathFilePrimary, PathFileSecondary, iopriority: IOPriority);
+        public void MoveToSecondary()
+        {
+            if (Primary.Exists) FileNG.Move(PathFilePrimary, PathFileSecondary, overwrite: true, iopriority: IOPriority);
+        }
 
         Type[] typesNotFormattedAsJson = new Type[]
         {
@@ -135,6 +141,17 @@ namespace SchrodingersStorage
             string json = ReadAsString();
             T obj = JsonConvert.DeserializeObject<T>(json);
             return obj;
+        }
+
+        public void Delete()
+        {
+            bool deletedFromPrimary = true;
+            bool deletedFromSecondary = true;
+            try { FileNG.Delete(PathFilePrimary, IOPriority); }
+            catch { deletedFromPrimary = false; }
+            try { FileNG.Delete(PathFileSecondary, IOPriority); }
+            catch { deletedFromSecondary = false; }
+            if (!deletedFromPrimary && !deletedFromSecondary) throw new FileNotFoundException($"{PathFilePrimary} or {PathFileSecondary}");
         }
     }
 }

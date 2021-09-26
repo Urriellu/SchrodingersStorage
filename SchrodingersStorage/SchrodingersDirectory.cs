@@ -24,7 +24,19 @@ namespace SchrodingersStorage
         DirectoryInfo Primary => new DirectoryInfo(PathDirectoryPrimary);
         DirectoryInfo Secondary => new DirectoryInfo(PathDirectorySecondary);
 
-        public SchrodingersFile GetFile(string filename, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort) => new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename), ioPriorityClass);
+        public SchrodingersFile GetFile(string filename, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort)
+        {
+            if (Path.IsPathRooted(filename)) throw new ArgumentException($"Filename '{filename}' must be only a file name, without a path.");
+            SchrodingersFile sf = new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename), ioPriorityClass);
+            return sf;
+        }
+
+        public SchrodingersDirectory GetDirectory(string directoryName, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort)
+        {
+            if (Path.IsPathRooted(directoryName)) throw new ArgumentException($"Directory name '{directoryName}' must be only a name, without a path.");
+            SchrodingersDirectory sf = new SchrodingersDirectory(Path.Combine(PathDirectoryPrimary, directoryName), Path.Combine(PathDirectorySecondary, directoryName), ioPriorityClass);
+            return sf;
+        }
 
         public SchrodingersDirectory(SchrodingersDirectory parent, string name, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort) : this(Path.Combine(parent.PathDirectoryPrimary, name), Path.Combine(parent.PathDirectorySecondary, name), ioPriorityClass) { }
 
@@ -58,7 +70,7 @@ namespace SchrodingersStorage
                 string pathDirSec = Path.Combine(PathDirectorySecondary, subdirname);
                 TDirectories newobj;
                 if (constructor != null) newobj = constructor(pathDirPrim, pathDirSec);
-                else newobj = (TDirectories)Activator.CreateInstance(typeof(TDirectories), pathDirPrim, pathDirSec);
+                else newobj = (TDirectories)Activator.CreateInstance(typeof(TDirectories), pathDirPrim, pathDirSec, IOPriority);
                 result.Add(newobj);
             }
             return result;
@@ -115,9 +127,18 @@ namespace SchrodingersStorage
             }
         }
 
-        public bool IsInPrimary => Files.All(f => f.IsInPrimary) && Directories.All(d => d.IsInPrimary);
+        public bool IsInPrimary
+        {
+            get
+            {
+                if (!Primary.Exists) return false;
+                if (Files.Any(f => f.IsOnlyInSecondary)) return false;
+                if (Directories.Any(d => d.IsOnlyInSecondary)) return false;
+                return true;
+            }
+        }
 
-        public bool IsOnlyInSecondary => Files.All(f => f.IsOnlyInSecondary) && Directories.All(d => d.IsOnlyInSecondary);
+        public bool IsOnlyInSecondary => !Primary.Exists && Secondary.Exists && !Files.Any(f => f.IsOnlyInSecondary) && !Directories.Any(d => !d.IsOnlyInSecondary);
 
         public void MoveToPrimary()
         {
