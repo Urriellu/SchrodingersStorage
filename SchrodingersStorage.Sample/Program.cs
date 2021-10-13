@@ -6,7 +6,7 @@ namespace SchrodingersStorage.Sample
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            throw new NotImplementedException(); // To Do
         }
     }
 }

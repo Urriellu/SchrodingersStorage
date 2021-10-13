@@ -38,7 +38,9 @@ namespace SchrodingersStorage
             return sf;
         }
 
-        public SchrodingersDirectory(SchrodingersDirectory parent, string name, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort) : this(Path.Combine(parent.PathDirectoryPrimary, name), Path.Combine(parent.PathDirectorySecondary, name), ioPriorityClass) { }
+        public SchrodingersDirectory(SchrodingersDirectory parent, string name, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort) : this(Path.Combine(parent.PathDirectoryPrimary, name), Path.Combine(parent.PathDirectorySecondary, name), ioPriorityClass)
+        {
+        }
 
         public SchrodingersDirectory(string pathDirPrimary, string pathDirSecondary, IOPriorityClass ioPriorityClass = IOPriorityClass.L02_NormalEffort)
         {
@@ -60,9 +62,11 @@ namespace SchrodingersStorage
             string[] primarySubDirsNames = new string[0];
             try { primarySubDirsNames = Primary.GetDirectories(iopriority: IOPriority).Select(d => d.Name).ToArray(); }
             catch { }
+
             string[] secondarySubDirsNames = new string[0];
             try { secondarySubDirsNames = Secondary.GetDirectories(iopriority: IOPriority).Select(d => d.Name).ToArray(); }
             catch { }
+
             var allSubDirsNames = primarySubDirsNames.Union(secondarySubDirsNames);
             foreach (string subdirname in allSubDirsNames)
             {
@@ -70,9 +74,10 @@ namespace SchrodingersStorage
                 string pathDirSec = Path.Combine(PathDirectorySecondary, subdirname);
                 TDirectories newobj;
                 if (constructor != null) newobj = constructor(pathDirPrim, pathDirSec);
-                else newobj = (TDirectories)Activator.CreateInstance(typeof(TDirectories), pathDirPrim, pathDirSec, IOPriority);
+                else newobj = (TDirectories) Activator.CreateInstance(typeof(TDirectories), pathDirPrim, pathDirSec, IOPriority);
                 result.Add(newobj);
             }
+
             return result;
         }
 
@@ -105,9 +110,11 @@ namespace SchrodingersStorage
                 string[] primaryFileNames = new string[0];
                 try { primaryFileNames = Primary.GetFiles().Select(d => d.Name).ToArray(); }
                 catch { }
+
                 string[] secondaryFileNames = new string[0];
                 try { secondaryFileNames = Secondary.GetFiles().Select(d => d.Name).ToArray(); }
                 catch { }
+
                 var allFileNames = primaryFileNames.Union(secondaryFileNames);
                 foreach (string filename in allFileNames) yield return new SchrodingersFile(Path.Combine(PathDirectoryPrimary, filename), Path.Combine(PathDirectorySecondary, filename), IOPriority);
             }
@@ -138,7 +145,17 @@ namespace SchrodingersStorage
             }
         }
 
-        public bool IsOnlyInSecondary => !Primary.Exists && Secondary.Exists && !Files.Any(f => f.IsOnlyInSecondary) && !Directories.Any(d => !d.IsOnlyInSecondary);
+        public bool IsOnlyInSecondary
+        {
+            get
+            {
+                if (Primary.Exists) return false;
+                if (!Secondary.Exists) return false;
+                if (Files.Any(f => !f.IsOnlyInSecondary)) return false;
+                if (Directories.Any(d => !d.IsOnlyInSecondary)) return false;
+                return true;
+            }
+        }
 
         public void MoveToPrimary()
         {
@@ -150,10 +167,16 @@ namespace SchrodingersStorage
 
         public void MoveToSecondary()
         {
-            if (!DirectoryNG.Exists(PathDirectorySecondary, iopriority: IOPriority)) DirectoryNG.CreateDirectory(PathDirectorySecondary, IOPriority);
+            try { DirectoryNG.CreateDirectory(PathDirectorySecondary, IOPriority); }
+            catch { }
+
             foreach (SchrodingersDirectory dir in Directories) dir.MoveToSecondary();
             foreach (SchrodingersFile file in Files) file.MoveToSecondary();
-            if (Primary.Exists(iopriority: IOPriority)) Primary.Delete(recursive: false, iopriority: IOPriority);
+            if (Primary.Exists(iopriority: IOPriority))
+            {
+                try { Primary.Delete(recursive: false, iopriority: IOPriority); }
+                catch { }
+            }
         }
     }
 
