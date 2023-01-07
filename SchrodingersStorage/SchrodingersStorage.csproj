@@ -19,8 +19,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CmdOneLiner.NET" Version="1.0.3" />
     <PackageReference Include="Humanizer.Core" Version="2.11.10" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Sys.IO.NG" Version="1.0.2" />
   </ItemGroup>
 
 </Project>
