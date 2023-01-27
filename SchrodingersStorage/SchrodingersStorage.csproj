@@ -7,6 +7,8 @@
     <Company>SchrodingersStorage</Company>
     <RepositoryUrl>https://github.com/Urriellu/SchrodingersStorage</RepositoryUrl>
     <PackageTags>multiple location storage</PackageTags>
+    <Version>0.1</Version>
+    <Description>An simple object-oriented file system abstraction where files and directories can be stored in one directory, two, both, or none. This is useful for accessing data while it is being transfererred between drives.</Description>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
